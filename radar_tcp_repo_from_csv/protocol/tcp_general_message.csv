@@ -1,0 +1,621 @@
+,,,,,,,,,,,,,,
+Category,signal,Description,bit size,byte size,type,lower value,upper value,resolution,offset,MinPhys,MaxPhys,unit,Default,remark
+?? ??,VehicleType,?? ??,8,1,uint8_t,0,254,1,0,0,254,-,255,default : 0
+,GearPosition,?? ??,8,1,uint8_t,0,7,1,0,0,7,-,255,"0 : Parking
+5 : Drive
+6 : Neutral
+7 : Rear"
+,SteeringAngle_deg,??? ???? ??? ??,16,2,int16_t,-32768,32766,0.1,0,-3276.8,3276.6,degree,32767,"CAN Input Signal : SAS_AnglVal ??
+
+0x0000~0x7FFE:real value
+           0x7FFF:Error Indicator
+0x8000~0xFFFF:real value"
+,YawSignalStatus,"This signal indicates failure status of yaw rate signal and yaw rate sensing element.
+
+0000B : No failure 
+
+xxx1B : IMU_Yawrate_failure
+
+xx1xB : Initialization is running
+
+x1xxB : Reserved
+
+1xxxB : Not applied
+
+This signal represents the physical error in MEMs sensor or microprocessor error in air bag control unit, but it does not contain the signal plausibility error check result. Signal plausibility error check has to be accomplished to each control unit using the own plausibility error check criterion.
+
+The initialization time is the time that takes for the sensor to operate normally after power on. The maximum initialization time does not exceed the ACU CAN valid message transmission time. In the initial startup condition, the time does not exceed 1500ms and In case of ACU Only Reset, it does not 600ms.
+
+The sensor status information is selected from one among 0000B, xxx1B, and xx1xB.",8,1,uint8_t,0,15,1,0,0,15,-,255,"CAN Input Signal : IMU_YawSigSta ??
+
+0000B : ?? ??
+xxx1B : IMU_Yawrate_failure
+xx1xB : ??? ?? ?
+x1xxB : ???
+1xxxB : ???? ??"
+,YawRate_dps,??? ???? ????? ???,16,2,uint16_t,0,65534,0.005,-163.84,-163.84,163.83,degree/s,65535,"CAN Input Signal : IMU_YawRtVal ??
+This signal indicates Information regarding yaw rate.
+
+physical range : -163.84..163.83 ?/s = 0000H..FFFEh
+
+Conversion : (PH) = ((HEX)-8000H)*0.005[?/s/digit]
+
+                            = (HEX)*0.005[?/s/digit] - 163.84[?/s]
+
+                     FFFFh = Error 
+
+Physical range and the resolution applied to the conversion rules may differ from the actual sensor specifications specified in the ES95920-75.
+
+If the digital output range of the actual sensor is over -163.84°/s ~ +163.83°/s, CAN message will show minimum and the maximum values. However, if the digital output range of the actual sensor is smaller than physical range of CAN, CAN message will only output to the maximum and minimum values of the digital output."
+,EngineRunningStatus,"This signal is indicating normal engine running status. When engine is normal engine running state out of start, the signal turns to 1, otherwise 0 including engine stop & starting phase(cranking).",8,1,uint8_t,0,3,1,0,0,3,-,255,"CAN Input Signal : ENG_EngRunSta ??
+
+0x0:Engine Stop or Starting Phase
+0x1:Engine Running
+0x2:Not used
+0x3:Error indicator"
+,EngineStatus,This signal indicates that a status of engine.,8,1,uint8_t,0,7,1,0,0,7,-,255,"CAN Input Signal : ENG_EngSta ??
+
+0x0:Engine Stop
+0x1:Cranking
+0x2:Stalled
+0x3:Running
+0x4:Reserved
+0x5:Reserved
+0x6:Reserved
+0x7:Fault"
+,AcceleratorPedalValue,"The signal PV_AV_CAN is a measure of the Accelerator Pedal value.
+The accelerator pedal value is determined via 2 pedal sensors, which are connected mechanically to the
+accelerator pedal. If the EMS-ECU recognizes that the accelerator pedal is not activated, then the value
+00 H is carried over on the CAN. If the EMS-ECU detects that the accelerator pedal is fully activated, then 3FEH is carried over on the CAN bus.
+If an error is detected on both pedal sensor channels, this is identified by the value 3FFH.
+
+Signal relationship between ACC_ACT and PV_AV_CAN :
+The phase relationship between auto cruise control and PV_AV_CAN is as following figure. If an auto cruise control system is not installed or if cruise control is not activated in auto cruise control system installed vehicle then PV_AV_CAN has actual pedal position value. But if the auto cruise control is activated (actually speed control is performed by EMS), PV_AV_CAN should have modeling value even if a driver does not press the acceleration pedal.
+If ACC_ACT is value(0), then PV_AV_CAN is APS Value.
+If ACC_ACT is value(1), then PV_AV_CAN is Modeling Value.
+* APS Value : Acceleration Pedal Sensor value.
+* Modeling Value : Estimated APS value which is calculated by ECU logic considering engine control during the auto-cruise control is activated period. (e.g. estimated throttle value of
+gasoline engine system or TPS model value of diesel engine system)
+And also this value can be used as a driver intension for the shift control of an A/T during auto-cruise control.
+
+Signal relationship between PV_AV_CAN and TPS in DIESEL system :
+In a diesel engine vehicle which has an ETC system, basically TPS has APS value. And if auto cruise control is activated then both TPS and PV_AV_CAN should have modeling value which is estimated according to the actual fuel injection and other factors that affect engine torque.",16,2,uint16_t,0,1023,1,0,0,1023,-,65535,"CAN Input Signal : ENG_AccelPdlVal ??
+
+0x0:Accelerator Pedal not activated
+0x3FE:Accelerator Pedal fully activated
+0x3FF:Accelerator Pedal is defective (fail state) or Non-ETC system (APS is not installed), Error indicator"
+,AppliedAcceleratorPedalStatus,"This signal indicates if the driver applies the accelerator pedal. 
+The signal always indicates the actual operation of the accelerator pedal, independent from SCC mode.",8,1,uint8_t,0,3,1,0,0,3,-,255,"CAN Input Signal : ENG_AppAccelPdlSta ??
+
+0x0:Accelerator pedal not pressed/0x1:Accelerator pedal pressed
+0x2:Reserved
+0x3:Accelerator pedal position sensor failure"
+,ActualAccelerationPedalValue,EMS Actual Driver Acceleration Pedal Value (0x00~0x3FE),16,2,uint16_t,0,1023,1,0,0,1023,-,65535,"CAN Input Signal : ENG_ActlAccelPdlVal ??
+
+0x0:Accelerator Pedal not activated
+0x3FE:Accelerator Pedal fully activated
+0x3FF:Accelerator Pedal is defective (fail state) or Non-ETC system (APS is not installed), Error indicator"
+,GearSelectDisplay,"Position (P, R, N..), which was identified by the gear selector.
+In case the gear selector is in a intermediate position, the last clear recognized position is used.
+There is no specific phase relationship between the output and any other signal.
+
+This signal is raw value of inhibitor switch on auto transmission except SBW/DCT, should not use on diagnosis",8,1,uint8_t,0,15,1,0,0,15,-,255,"CAN Input Signal : TCU_GearSlctDis ??
+
+0x0:P
+0x1:L
+0x2:2
+0x3:3
+0x4:DS Mode
+0x5:D
+0x6:N
+0x7:R
+0x8:sports mode / manual shift / paddle shift
+0x9:Not Display at Cluster
+0xA:Sub-Rom Communication
+0xB:Sub-Rom Communication Error
+0xC:Paddle shift (D-position)
+0xD:Full-time manual shift
+0xE:Intermediate Position
+0xF:Unknown signal Detecting (Should not use on diagnosis)"
+,EngineTargetGear,"TCH_EngTrgtGearSta informs about target gear of SS timing 
+(For indicating Paddle shift or Manual mode on cluster)",8,1,uint8_t,0,14,1,0,0,14,-,255,"CAN Input Signal : TCH_EngTrgtGearSta
+
+0x0:if N or P are detected (no frictional connection)
+0x1:1st speed
+0x2:2nd speed
+0x3:3rd speed
+0x4:4th speed
+0x5:5th speed
+0x6:6th speed
+0x7:7th speed
+0x8:8th speed
+0xE:Reverse speed"
+,WheelSpeed_kmph,"This signal provides the wheel velocity of each wheel and have 14 bits length and a resolution of 0.03125 km^h.(This resolution is higher than that of signal in TCS5).
+In case of failure of one wheel speed sensor, the value 3FFFH is used as error identifier.",64,8,uint16_t[4],0,16383,0.03125,0,0,511.96875,km/h,65535,"CAN Input Signal : WHL_SpdFLVal, WHL_SpdFRVal, WHL_SpdRLVal, WHL_SpdRRVal
+([0]:FL, [1]:FR, [2]:RL, [3]:RR)
+0x3FFF:Error"
+,Reserved1,Reserved,64,8,char[8],0,127,1,0,0,127,-,255,Reserve
+?? ??,SensorPosition,??? ??? ?? ??,8,1,uint8_t,0,254,1,0,0,254,-,255,"Mobis ?? ? ?? ??
+default : 0"
+,MountingDirection,??? ?? ??,8,1,uint8_t,0,1,1,0,0,1,-,255,"Mobis ?? ? ?? ??
+0 : normal
+1 : reverse"
+,XOffset_m,?? ????? X? ???,16,2,int16_t,-32768,32767,0.000915527,0,-30,30,meter,0,Mobis ?? ? ?? ??
+,YOffset_m,?? ????? Y? ???,16,2,int16_t,-32768,32767,0.000915527,0,-30,30,meter,0,Mobis ?? ? ?? ??
+,ZOffset_m,?? ????? Z? ???,16,2,int16_t,-32768,32767,0.000915527,0,-30,30,meter,0,
+,AzimuthEOLOffset_deg,HKMC ??? EOL Offset  -> Reserved,16,2,int16_t,-32768,32767,0.01,0,-327.68,327.67,degree,0,`
+,ElvevationEOLOffset_deg,HKMC ?? EOL Offsetv  -> Reserved,16,2,int16_t,-32768,32767,0.01,0,-327.68,327.67,degree,0,SW? ?? ?? ??? ?? ?? ????? Reserve?? Agree? ?? ??
+,Reserved2,Reserved,160,20,char[20],0,127,1,0,0,255,-,255,Reserve
+??? ?? ?? ? ?? ??,ECU_Id,ECU ID,400,50,char[50],0,127,1,0,0,255,-,255,Mobis ?? ? ?? ??
+,HW_Version,Hardware version,32,4,char[4],0,127,1,0,0,255,-,255,Mobis ?? ? ?? ??
+,SW_Version,Software version,256,32,char[32],0,127,1,0,0,255,-,255,Mobis ?? ? ?? ??
+,FrameNum,?? frame? frame number,32,4,uint32_t,0,4294967295,1,0,0,4294967295,1,0,
+,CenterFrequency,?? frame? ?? ???,16,2,uint16_t,7600,8100,10,0,76000,81000,MHz,65535,
+,PRI_us,PRI ??,16,2,uint16_t,0,65534,0.01,0,0,655.34,us,65535,?? ?? 66.8 us or 74 us
+,TotalTargetNum,?? frame ? ?? ??,16,2,uint16_t,0,2048,1,0,0,2048,1,65535,
+,ProcessingTime,?? frame? ?? ??,16,2,uint16_t,0,65535,0.01,0,0,655.35,ms,65535,???? ?? ?? ????? ? ? ?? ??
+,Reserved3,Reserved,528,66,char[66],0,127,1,0,0,255,-,255,Reserve
+?? ??,SampleCalibrationData,?? ??,16384,2048,Complex_t[256],-,-,1,0,-,-,-,0,
+,Reserved4,Reserved,8192,1024,Complex_t[128],-,-,1,0,-,-,-,0,Reserve
+?? ??,SacqElemNullingRatePct,?? frame ? ???? ??? ?? ?? ?,16,2,uint16_t,0,10000,0.01,0,0,100,%,10000,% ?? ??
+,Reserved5,Reserved,16,2,uint16_t,0,255,-,-,-,-,-,0,Reserve
+Noise ??,CurrentNoiseLevel_mag,?? frame? noise level,16,2,uint16_t,0,65535,0.01,0,0,655.35,-,65535,magnitude
+,PrevNoiseLevel_mag,?? frame? noise level,16,2,uint16_t,0,65535,0.01,0,0,655.35,-,65535,magnitude
+,Reserved6,Reserved,32,4,char[4],0,127,1,0,0,255,-,255,Reserve
+AA? ??? ???,Reserved7,Reserved,64,8,char[8],0,127,1,0,0,255,-,255,Reserve
+??? AA ??,Reserved8,Reserved,64,8,char[8],0,127,1,0,0,255,-,255,Reserve
+?? AA ??,Reserved9,Reserved,64,8,char[8],0,127,1,0,0,255,-,255,Reserve
+Blockage ??,Reserved10,Reserved,256,32,char[32],0,127,1,0,0,255,-,255,Reserve
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,

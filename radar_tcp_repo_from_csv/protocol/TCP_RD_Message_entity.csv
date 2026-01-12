@@ -1,0 +1,598 @@
+,,,,,,,,,,,,,,
+Category,signal,Description,bit size,byte size,type,lower value,upper value,resolution,offset,MinPhys,MaxPhys,unit,Default,remark
+Detection[2048],Existence probability - detection level,"The signal ""Existence probability - detection level"" of the detection uses, for example, signal to noise ratio(SNR) and radar cross section(RCS). It is not based on history.
+
+Additional information:
+Use as confidence measure where a low value means less confidence and a high value indicates strong confidence.",8,1,uint8_t,0,100,1,0,0,100,%,255,??? ??? ?? ??? ?? ? ??? ??? ??? ??? ???? ??? ??
+,Detection ID,"The signal ""Detection ID"" provides the unique identification number of the detection within the detection list.
+
+Additional information:
+The signal's ""Detection ID"" value is only unique for each sensor cluster's detection entities of DLI within one measurement cycle
+If interfaces use the signal ""Detection ID"" to link, for example, object entities with detection entities, the interfaces shall ensure the unambiguity of the referenced entities at each or multiple measurement cycle [see, for example, cross interface optimisation ""Source entities of a derived signal"".",16,2,uint16_t,0,2048,1,0,0,2048,1,65535,??? ?? ??(measurement cycle) ??? ??? ? ??? Detection? ???? ???? ?? ???? ?? ??
+,Object ID reference - detection level,"The signal's ""Object ID"" value defines the object to which this detection is associated to; invlid = ""no associated object"", for example, for the first detection cycle of the entity.
+
+Additional information:
+Refers to object (for example, potentially moving object) with the highest probability.
+The signal's ""Object ID reference - detection level"" value could reference entities of the sensor cluster's OLI or entities which are used internally by the sensor cluster.
+Alternative A2I: The mapping of object signal ""Object ID"" and detections signal ""Object ID reference - detection level"" could be provided in a separate interface.",8,1,uint8_t,0,0,1,0,0,0,1,0,"Reserve - Tracking ?? ?? ????? ?? ?? ??
+(Detection? Update Object? Association? ??, ?? Object ID)"
+,Time stamp difference - detection level,"Each detection entity could provide an individual time stamp, specifically a time stamp difference to the signal ""Time stamp - measurement"" value of the interface.
+
+Additional information:
+The time stamp of the detection can be calculated as the signal ""Time stamp - measurement"" of the DLI header for the cycle plus the signal ""Time stamp difference - detection level"" of the detection.",16,2,uint16_t,0,50,1,0,0,TBD,ms,65535,"0?? ??
+
+ISO23150??? Radar scan ??? 2??? ??
+ - continuous
+   - ?? FMCW Radar
+ - subdivided
+   - ?? Beam Radar
+?? Beam Radar??? ? ?? beam? ??? beam? ?? ??? ????? ?? offset ??? ?? ??? ??
+MAR520? ?? continuous scan?? ? cycle?? ?? ??? ?? ??? ????? offset ???
+
+A.1.5.2 Tims stamp - measurement ?? ??
+In case of a continuous or a subdivided measurement cycle, the signal ""Time stamp difference - detection level"" shall be used to differentiate the real measured point in time of the entity acquisition."
+,Radar cross section,"The signal ""Radar cross section"" provides the RCS of the detection.
+
+Additional information:
+It is the representative RCS of the detection.
+The value is compensated. Slow changes (for example, aging of the sensor) are compensated, fast changes (for example, rain) are not compensated. All systematic absorptions are compensated, for example, from the bumper.",16,2,uint16_t,0,40000,0.005,-100,-100,100,dBms,65535,"???, ??? RCS ?? Table? ?? ??"
+,Radar cross section - error,"The signal ""Radar cross section - error"" provides the error value of the signal ""Radar cross section"".",16,2,int16,-20000,20000,0.005,0,-100,100,dBms,32767,"?? ?? ??? ?? ?? ??? ?? ??
+1. ??? ??? Linear Level? ????, RCS ??(Compensation) ???? ??? ? ??? ??
+2. Ambiguity ID? ?? Detection? ????, ?? ?? Point Cloud?? RCS ???(Deviation)? ????."
+,Signal to noise ratio - detection level,"The signal ""Signal to noise ratio - detection level"" provides the SNR of the detection.",8,1,uint8_t,0,254,0.25,0,0,63.5,dB,255,Detection? ?? ??(Signal Level)? CFAR ?? ?? ??(CFAR Noise Level)?? ?
+,Signal to noise ratio - detection level - error,"The signal ""Signal to noise ratio - detection level - error"" provides the error value of the signal ""Signal to noise ratio - detection level"".",8,1,uint8_t,0,254,0.25,0,0,63.5,dB,255,"?? ?? ??? ?? ?? ??? ?? ??
+1. Ambiguity ID? ?? Detection? ????, ?? ?? Point Cloud?? RCS ???(Deviation)? ????. -> SNR ????? ?? ??"
+,Multi target probability,"The signal ""Multi target probability"" describes the possibility if more than one real-world object has led to this detection.",8,1,uint8_t,0,100,1,0,0,100,%,255,???? APS?? Noise Variance? ?? ? ?? Peak? ?? ??? %? ?? 
+,Ambiguity grouping ID,"Ambiguous measurement uses one ID for signal ""Ambiguity grouping ID"" for ambiguous detection candidates. Ambiguous detections (all detection candidates for the same measurement value) are shown by the same signal's ""Ambiguity grouping ID"" value.
+Detections of unambiguous measurements have signal ""Ambiguity grouping ID"" := 0.
+
+Additional information:
+Ambiguity can be specified by, for example, the signal ""Radial velocity ambiguity domain {begin, end}"", ""Range ambiguity domain {begin, end}"", ""Angle azimuth ambiguity domain {begin, end}"" or ""Angle elevation ambiguity domain {begin, end}"". Other ambiguities can add an additional signal analogous to these signals.
+The signal's ""Ambiguity grouping ID"" value in the list is unique only for each cycle. The signal's ""Ambiguity grouping ID"" values could be reused every cycle.",16,2,uint16_t,0,2048,1,0,0,2048,1,65535,"?? ??? ?? Ambiguity?? ??? Detection? ?? ?? ID? ???? ??? ?? ??? Doppler Ambiguity ???? ???? ???? ??? ????? Dual PRI?? ?????? ??? Detection? ID? ?? 
+
+?? ?? ???"
+,Detection ambiguity probability,"The signal ""Detection ambiguity probability"" provides the probability for different hypotheses, sum is less or equal 100% for all detections with the same signal's ""Ambiguity grouping ID"" value.
+
+Additional information:
+Use as confidence measure where a low value means less confidence and a high value indicates strong confidence.",8,1,uint8_t,0,100,1,0,0,100,%,0,"Reserve
+? ??? ??? ? ?? 0 ?? 100??? Matching?. ?? ? ??? ? ?? ?? ??? ??? ???"
+,Free space probability,"The signal ""Free space probability"" provides the free space probability in the range [0, 100] % from the origin of the sensor up to this detection, as given by the distance.
+
+Additional information:
+The probability of free space between the origin and this detection as given by the distance in the range [0, 100] %. In this range, for example, the signal ""Signal to noise ratio - detection level"" is very low. A second detection (detection behind another detection) has the signal ""Free space probability"" = 0%.
+In case of an empty measurement, the detection's signal ""Existence probability - detection level"" is set to 0% and the distance is set to default value. The distance of the detection combined with the signal ""Free space probability"" give the free space.
+Use as confidence measure where a low value means less confidence and a high value indicates strong confidence.",8,1,uint8_t,0,100,1,0,0,100,%,0,"Reserve
+Free Space ???? ????? Reserve ?????. 
+"
+,Number of valid detection classification,"The signal ""Number of valid detection classifications"" provides the current number of valid tuples for detection classifications. The tuples are defined by the signals ""Detection classification type"" and ""Detection classification type - confidence""",8,1,uint8_t,0,TBD,1,0,0,TBD,1,0,"Reserve
+1?? Detection? ???? Object? Association?? ?? ? ?? ??? ??? ???, Tracking ??? ?? ?? ???? Reserve ?????. "
+,Detection classification type,"Additional classification information if detection is assigned to an object [see signal ""Object ID reference - detection level""]
+
+Additional information:
+Exception to single shot rule: can be tracked over time. A detection might require multiple time steps.",32,4,enumeration[4],0,6,1,0,0,6,1,0,"Reserve
+Detection ??? Classification ?? ??? ? ??? ???"
+,Detection classification type - confidence,"The signal ""Detection classification type - confidence"" provides the confidence for the corresponding signal ""Detection classification type"".",32,4,uint8_t[4],0,100,1,0,0,100,%,0,"Reserve
+Detection ??? Classification ?? ??? ? ??? ???"
+,Position {radial distance},"Due to sensor specific measurement method, the values of the signal ""Position {radial distance, azimuth, elevation}"" are given in the sensor coordinate system.
+
+Additional information:
+In case of an ambiguity the detection is send several times. For example, a measured detection with angle ambiguity will send detection candidates with different angles and different values for signal ""Detection ambiguity probability"" and the same value for signal ""Ambiguity grouping ID"".",16,2,uint16_t,0,65534,0.01,0,0,655.34,m,65535,"Radar ??, ????? ?? ??"
+,Position {azimuth},"Due to sensor specific measurement method, the values of the signal ""Position {radial distance, azimuth, elevation}"" are given in the sensor coordinate system.
+
+Additional information:
+In case of an ambiguity the detection is send several times. For example, a measured detection with angle ambiguity will send detection candidates with different angles and different values for signal ""Detection ambiguity probability"" and the same value for signal ""Ambiguity grouping ID"".",16,2,uint16_t,0,31416,0.0001,-1.5708,-1.5708,1.5708,rad,65535,"Radar ??, ??? ??? ?? ??"
+,Positon {elevation},"Due to sensor specific measurement method, the values of the signal ""Position {radial distance, azimuth, elevation}"" are given in the sensor coordinate system.
+
+Additional information:
+In case of an ambiguity the detection is send several times. For example, a measured detection with angle ambiguity will send detection candidates with different angles and different values for signal ""Detection ambiguity probability"" and the same value for signal ""Ambiguity grouping ID"".",16,2,uint16_t,0,31416,0.0001,-1.5708,-1.5708,1.5708,rad,65535,"Radar ??, ??? ??? ?? ??"
+,Position {radial distance} - error,"The signal ""Position {radial distance, azimuth, elevation} - error"" provides the error values of the signal ""Position {radial distance, azimuth, elevation}"".
+
+Additional information:
+The values are given in the sensor coordinate system.",16,2,uint16_t,0,65534,0.01,0,0,655.34,m,65535,"? ? ??? ?? ??? ?? Error? ?? 
+ = abs(?? Scan? Predicted Detection Position - ?? Measure? Detection Position)
+
+??? ?? ?? ???"
+,Position {azimuth} - error,"The signal ""Position {radial distance, azimuth, elevation} - error"" provides the error values of the signal ""Position {radial distance, azimuth, elevation}"".
+
+Additional information:
+The values are given in the sensor coordinate system.",16,2,uint16_t,0,31416,0.0001,0,0,3.1416,rad,65535,"? ? ??? ?? ??? ?? Error? ?? 
+ = abs(?? Scan? Predicted Detection Position - ?? Measure? Detection Position)
+
+??? ?? ?? ???"
+,Position {elevation} - error,"The signal ""Position {radial distance, azimuth, elevation} - error"" provides the error values of the signal ""Position {radial distance, azimuth, elevation}"".
+
+Additional information:
+The values are given in the sensor coordinate system.",16,2,uint16_t,0,31416,0.0001,0,0,3.1416,rad,65535,"? ? ??? ?? ??? ?? Error? ?? 
+ = abs(?? Scan? Predicted Detection Position - ?? Measure? Detection Position)
+
+??? ?? ?? ???"
+,Relative velocity {radial distance},Detection's received power strength,16,2,uint16_t,0,65534,0.005,-200,-200,127.67,m/s,65535,"Radar ??, ??? ?? ???? Relative Radial Velocity"
+,Relative velocity {radial distance} - error,??? ?? ?? (???? ?? ?? ??) ?? ??,16,2,uint16_t,0,65534,0.005,0,0,327.67,m/s,65535,"? Detection? ?? Error? ?? 
+ = abs(?? Scan? Measure? Detection Velocity - ?? Measure? Detecttion Velocity)
+
+??? ?? ?? ???"
+,Power,?? ?? ?? (???? ?? ?? ??) ?? ??,16,2,uint16_t,0,65534,0.01,-300,-300,355.34,dB,65535,Radar?? ??? Linear Level NCI Power
+,Azimuth Angle Estimation Method,"Quality of ""Position {radial distance, azimuth, elevation}"" measurement",8,1,uint8_t,1,4,1,0,1,4,1,255,Azimuth Angle estimation ??? ?? Flag 
+,Elevation Angle Estimation Method,Azimuth angle ambiguity model of detection.,8,1,uint8_t,1,2,1,0,1,2,1,255,Elevation Angle estimation ??? ?? Flag 
+,"Position {radial distance, azimuth, elevation} - quality",Elevation angle ambiguity model of detection.,24,3,uint8_t[3],0,100,1,0,0,100,%,255,"1 : Measure???? Error?? Min - Max?? ??(Lessoned) ? Error?? %? ?? 
+2 : ???? Azimuth APS? ?? SNR
+3 : ???? Elevation APS? ?? SNR"
+,Ambiguity model azimuth,Quality of unambiguous radial velocity,8,1,uint8_t,1,4,1,0,1,4,1,255,"Azimuth APS? ?? ??? Multi Target? ??
+single target = 1,
+two target = 2,
+three target = 3,
+multi target = 4"
+,Ambiguity model elevation,Relative velocity ambiguity model of detection.,8,1,uint8_t,1,2,1,0,1,2,1,255,"Elevation APS? ?? ??? Multi Target? ??
+single target = 1,
+two target = 2
+(4?? 2? ??)"
+,Relative velocity {radial distance} - quality,Index of relative velocity ambiguity domain of detection.,8,1,uint8_t,0,100,1,0,0,100,%,255,Measure???? Error?? Min - Max?? ??(Lessoned) ? Error?? %? ?? 
+,Ambiguity model velocity,Dual PRF? ?? ?? Resolved ?? ?? ,8,1,uint8_t,0,1,1,0,0,1,1,255,"Dual PRF? ?? ?? Resolved ?? ?? 
+unknown = 0,
+resolved = 1"
+,Ambiguity index velocity,Dual PRF ?? ???? Resolved Case? fs? ID,16,2,uint16_t,0,65534,1,0,0,65534,1,65535,Dual PRF ?? ???? Resolved Case? fs? ID
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,

@@ -1,0 +1,45 @@
+,,,,,,,,,,,,,
+,  1. Document Information,,,,,,,,,,,,
+,Document,DEL-005,Version,v1.0,,,,,,,,,
+,Owner,bitsensing,Date,2026-01-07,,,,,,,,,
+,,,,,,,,,,,,,
+,  2. ?? ??,,,,,,,,,,,,
+,    2-1. 100Base-T1 ??,,,,,,,,,,,,
+,Transport (UDP/TCP),TCP,VLAN ID,,,,,,,,,,
+,Src IP,192.168.10.150,Dst IP,192.168.10.100,,,,,,,,,
+,Src Port,4545,Dst Port,4545,,,,,,,,,
+,,,Cycle (Events),50 ms,,,,,,,,,
+,    2-2. 1000Base-T1 ??,,,,,,,,,,,,
+,Transport (UDP/TCP),UDP,VLAN ID,,,,,,,,,,
+,Src IP,192.168.10.150,Dst IP,192.168.10.100,,,,,,,,,
+,Src Port,4547,Dst Port,4547,,,,,,,,,
+,Max Payload,1392,Cycle (Events),100 ms,,,,,,,,,
+,,,,,,,,,,,,,
+,  3. ??? ?? ? ??,,,,,,,,,,,,
+,,??,"Message ? ??
+[bytes]","Service ID
+[2B]","Method ID
+[2B]","Length
+[4B]","ClientID
+[2B]","SessionID
+[2B]","Protocol Version
+[1B]","Interface Version
+[1B]","Message Type
+[1B]","Reserved
+[1B]",
+,TCP_GeneralMessage,50ms,3368,0x6000,0x8001,3376,0x0001,0x0000~0xFFFF,0x01,0x01,0x02,0x00,
+,TCP_RadarDetection,50ms,112680,0x6000,0x8002,112688,0x0001,0x0000~0xFFFF,0x01,0x01,0x02,0x00,
+,,,,,,,,,,,,,
+,  4. ??? ?? ?? ??,,,,,,,,,,,,
+,Service ID [2B],?? ???? ?? ??,,,,,,,,,,,
+,Method ID [2B],"?? ???(??)? ??
+(MSB=1, Evnet ??)",,,,,,,,,,,
+,Length [4B],Request ID ?? ???? ??? ?????? ? ??,,,,,,,,,,,
+,ClientID [2B],??? ?? ?????? ?? ???,,,,,,,,,,,
+,SessionID [2B],"?? ????? ??? ?? ??? ?? ? ??? ????? ??? ???? ?? ????(0x0001~0xFFFF)
+",,,,,,,,,,,
+,Protocol Version [1B],"0x01, ??",,,,,,,,,,,
+,Interface Version [1B],"0x01, ??(??? ?? ??)",,,,,,,,,,,
+,Message Type [1B],0x02(Notification),,,,,,,,,,,
+,Reserved [1B],0x00,,,,,,,,,,,
+,,,,,,,,,,,,,
