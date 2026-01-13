@@ -1,23 +1,23 @@
 import socket
-import time
 import struct
-from dataclasses import dataclass
+import time
 import math
+from dataclasses import dataclass
 
 HOST = "0.0.0.0"
 PORT = 4545
 
 # =========================
-# 공통: TCP Header (16B)
+# Common TCP Header (16B)
 # =========================
-ENDIAN = ">"  # 사양서 little이면 "<"
+ENDIAN = ">"
 FMT_HEADER = ENDIAN + "HHIHHBBBB"
-HEADER_SIZE = struct.calcsize(FMT_HEADER)
-assert HEADER_SIZE == 16
+HDR = struct.Struct(FMT_HEADER)
+assert HDR.size == 16
 
 SERVICE_ID = 0x6000
 CLIENT_ID  = 0x0001
-SESSION_ID = 0xFFFF  # 고정(원하면 증가시키면 됨)
+SESSION_ID = 0xFFFF
 PROTO_VER  = 0x01
 IF_VER     = 0x01
 MSG_TYPE   = 0x02
@@ -26,55 +26,47 @@ RESERVED   = 0x00
 METHOD_GENERAL = 0x8001
 METHOD_RADAR   = 0x8002
 
-# Length = payload_len + 8 (표 기준)
-LENGTH_GENERAL = 0x0D30   # 3376
-LENGTH_RADAR   = 0x1B830  # 112688
-
-HEADER_GENERAL_BYTES = struct.pack(
-    FMT_HEADER, SERVICE_ID, METHOD_GENERAL, LENGTH_GENERAL,
-    CLIENT_ID, SESSION_ID, PROTO_VER, IF_VER, MSG_TYPE, RESERVED
-)
-HEADER_RADAR_BYTES = struct.pack(
-    FMT_HEADER, SERVICE_ID, METHOD_RADAR, LENGTH_RADAR,
-    CLIENT_ID, SESSION_ID, PROTO_VER, IF_VER, MSG_TYPE, RESERVED
-)
+LEN_MINUS = 8  # length = payload_len + 8
 
 # =========================
-# 유틸
+# Utils
 # =========================
 def fixed_bytes(b: bytes, n: int) -> bytes:
     if len(b) >= n:
         return b[:n]
     return b + (b"\x00" * (n - len(b)))
 
-def u8(x: int) -> int:
-    return x & 0xFF
-
-def u16(x: int) -> int:
-    return x & 0xFFFF
-
-def u32(x: int) -> int:
-    return x & 0xFFFFFFFF
+def u8(x: int) -> int:   return x & 0xFF
+def u16(x: int) -> int:  return x & 0xFFFF
+def u32(x: int) -> int:  return x & 0xFFFFFFFF
 
 def i16(x: int) -> int:
-    # struct 'h'는 -32768..32767
     x = int(x)
-    if x < -32768:
-        return -32768
-    if x > 32767:
-        return 32767
+    if x < -32768: return -32768
+    if x >  32767: return  32767
     return x
 
-def create_server():
-    server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server_sock.bind((HOST, PORT))
-    server_sock.listen(1)
-    print(f"Server listening on {HOST}:{PORT}")
-    return server_sock
+def clamp(x: int, lo: int, hi: int) -> int:
+    return lo if x < lo else hi if x > hi else x
 
-def send_message(conn, message: bytes):
-    conn.sendall(message)
+def make_header(method_id: int, payload_len: int) -> bytes:
+    length_field = payload_len + LEN_MINUS
+    return HDR.pack(
+        SERVICE_ID, method_id, length_field,
+        CLIENT_ID, SESSION_ID,
+        PROTO_VER, IF_VER, MSG_TYPE, RESERVED
+    )
+
+def create_server():
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    s.bind((HOST, PORT))
+    s.listen(1)
+    print(f"Server listening on {HOST}:{PORT}")
+    return s
+
+def send_message(conn, b: bytes):
+    conn.sendall(b)
 
 # =========================
 # GeneralMessage (payload 3368B)
@@ -94,8 +86,9 @@ FMT_GENERAL_PAYLOAD = (
     "H" "H" "H" "H"
     "4s" "8s" "8s" "8s" "32s"
 )
+GEN = struct.Struct(FMT_GENERAL_PAYLOAD)
 PAYLOAD_LEN_GENERAL = 3368
-assert struct.calcsize(FMT_GENERAL_PAYLOAD) == PAYLOAD_LEN_GENERAL
+assert GEN.size == PAYLOAD_LEN_GENERAL
 
 @dataclass
 class GeneralMessage:
@@ -153,8 +146,7 @@ class GeneralMessage:
     Reserved10: bytes
 
     def to_bytes(self) -> bytes:
-        return struct.pack(
-            FMT_GENERAL_PAYLOAD,
+        return GEN.pack(
             u8(self.VehicleType),
             u8(self.GearPosition),
             i16(self.SteeringAngle_deg),
@@ -213,93 +205,59 @@ class GeneralMessage:
 # RadarDetection (payload 112680B)
 # RadarPayload = RadarInternalHeader(40B) + DetectionEntry(55B)*2048
 # =========================
-# 40B: 3s BBB II HH B 8H H B H
 FMT_RD_HEADER = ENDIAN + "3sBBBIIHHB8HHBH"
 RD_HEADER = struct.Struct(FMT_RD_HEADER)
 assert RD_HEADER.size == 40
 
-# 55B DetectionEntry (네 타입 순서 기반)
 FMT_DET = ENDIAN + "BHBHHhBBBHBBB4s4sHHHHHHHHHBB3sBBBBH"
 DET = struct.Struct(FMT_DET)
 assert DET.size == 55
 
 NUM_DET = 2048
-PAYLOAD_LEN_RADAR = 112680
-assert RD_HEADER.size + DET.size * NUM_DET == PAYLOAD_LEN_RADAR
+PAYLOAD_LEN_RADAR = 40 + 55 * NUM_DET
+assert PAYLOAD_LEN_RADAR == 112680
 
-# ===== 분포 설정(원하는 느낌으로 조절) =====
-FOV_DEG = 90.0
-FOV_RAD = math.radians(FOV_DEG)
+# ===== angle raw domain =====
+ANG_RAW_MAX = 31416
+ANG_CENTER  = ANG_RAW_MAX // 2  # 15708
 
-R_MIN_RAW = 1000
-R_MAX_RAW = 60000
+# ✅ 고정 "원뿔 크기" (FOV 반각) : 30deg 기준이면 이렇게
+# rad(30)/0.0001 ≈ 5236.62
+MAX_DELTA_RAW = int(round(math.radians(30.0) / 0.0001))
 
-ROT_STEP_RAW = 120        # 프레임마다 azimuth raw 회전량(값 키우면 더 빨리 회전)
-R_JITTER_RAW = 200        # 거리 흔들림(값 키우면 더 출렁)
+# ✅ 회전만: 한 바퀴를 몇 프레임에 돌릴지
+ROT_FRAMES = 240  # 12초 @50ms
 
-def clamp_u16(x: int) -> int:
-    if x < 0: return 0
-    if x > 65535: return 65535
-    return x
+# ✅ range raw LUT: 0..65535 등간격 (항상 동일)
+R_RAW_MAX = 65535
+R_RAW_LUT = [int(round(i * R_RAW_MAX / (NUM_DET - 1))) for i in range(NUM_DET)]
 
-def xorshift32(x: int) -> int:
-    x &= 0xFFFFFFFF
-    x ^= (x << 13) & 0xFFFFFFFF
-    x ^= (x >> 17) & 0xFFFFFFFF
-    x ^= (x << 5)  & 0xFFFFFFFF
-    return x & 0xFFFFFFFF
-
-def theta_to_raw(theta_rad: float) -> int:
-    # client에서 theta = (raw/65535)*2pi - pi 로 복원한다는 가정
-    raw = int(((theta_rad + math.pi) / (2.0 * math.pi)) * 65535.0)
-    return clamp_u16(raw)
-
-def build_base_points(num: int):
+def frame_to_az_el(frame_idx: int) -> tuple[int, int]:
     """
-    2048개를 부채꼴(FOV) 내부에 '골고루' 퍼뜨리는 베이스 생성.
-    - theta: 균등
-    - r: 면적 균등을 위해 sqrt(u) 사용 (시각적으로 더 고르게 보임)
+    고정 크기 원뿔(반지름 MAX_DELTA_RAW)에서
+    중심축(ANG_CENTER) 기준으로 원형으로만 회전.
     """
-    base_az = [0] * num
-    base_r  = [0] * num
-    for i in range(num):
-        s = (i + 1) * 0xA341316C  # seed
-        s = xorshift32(s)
-        u_theta = (s & 0xFFFF) / 65535.0
-        theta = -FOV_RAD + (2.0 * FOV_RAD) * u_theta
-        base_az[i] = theta_to_raw(theta)
+    phi = 2.0 * math.pi * ((frame_idx % ROT_FRAMES) / ROT_FRAMES)
 
-        s = xorshift32(s)
-        u_r = (s & 0xFFFF) / 65535.0
-        r = R_MIN_RAW + int((R_MAX_RAW - R_MIN_RAW) * math.sqrt(u_r))
-        base_r[i] = clamp_u16(r)
-    return base_az, base_r
+    d_az = int(round(MAX_DELTA_RAW * math.cos(phi)))
+    d_el = int(round(MAX_DELTA_RAW * math.sin(phi)))
 
-BASE_AZ_RAW, BASE_R_RAW = build_base_points(NUM_DET)
-
-def raw_to_theta(raw: int) -> float:
-    return (raw / 65535.0) * (2.0 * math.pi) - math.pi
-
-def theta_to_raw(theta: float) -> int:
-    raw = int(((theta + math.pi) / (2.0 * math.pi)) * 65535.0)
-    return clamp_u16(raw)
-
-
+    pos_az = clamp(ANG_CENTER + d_az, 0, ANG_RAW_MAX)
+    pos_el = clamp(ANG_CENTER + d_el, 0, ANG_RAW_MAX)
+    return pos_az, pos_el
 
 @dataclass
 class RadarDetectionMessage:
-    # RadarDetection Internal Header fields
-    InterfaceVersion: bytes   # uint8[3]
-    InterfaceID: int          # uint8
-    NumberOfSensors: int      # uint8
-    SensorID: int             # uint8
+    InterfaceVersion: bytes   # 3s
+    InterfaceID: int
+    NumberOfSensors: int
+    SensorID: int
     Timestamp: int            # uint32
     CycleCounter: int         # uint32
     CycleTime: int            # uint16
     Variation: int            # uint16
     DataQualifier: int        # uint8
 
-    # ambiguity domains: uint16[2] x4
     RV_Amb_Begin: int
     RV_Amb_End: int
     Range_Amb_Begin: int
@@ -309,19 +267,13 @@ class RadarDetectionMessage:
     El_Amb_Begin: int
     El_Amb_End: int
 
-    RecognisedCapability: int # uint16
-    RecognisedStatus: int     # uint8
-    NumberValidDetections: int# uint16 (이 값이 2048이 아니어도 됨)
+    RecognisedCapability: int
+    RecognisedStatus: int
+    NumberValidDetections: int
 
-    def to_bytes(self, frame_idx: int, t_sec: float) -> bytes:
-        """
-        요구사항:
-        - DetectionEntry 2048개를 '전부' 매 프레임 채움 (0 padding 금지)
-        - NumberValidDetections는 헤더값 그대로 사용 가능
-        """
+    def to_bytes(self, frame_idx: int) -> bytes:
         buf = bytearray(PAYLOAD_LEN_RADAR)
 
-        # 1) Internal Header pack (40B)
         RD_HEADER.pack_into(
             buf, 0,
             fixed_bytes(self.InterfaceVersion, 3),
@@ -344,89 +296,54 @@ class RadarDetectionMessage:
             u16(self.NumberValidDetections),
         )
 
-        # 2) DetectionEntry 2048개 전부 채우기
         base = RD_HEADER.size
 
-        # 각도 분포: 0..65535 전체를 고르게 + 프레임에 따라 회전
-        rot = (frame_idx * 200) & 0xFFFF
+        # ✅ 한 프레임에서 2048개는 모두 같은 방향(az/el)
+        pos_az, pos_el = frame_to_az_el(frame_idx)
 
         for i in range(NUM_DET):
-            # ---- "변화하는" 시뮬 값들 (전부 0 아닌 값으로 구성) ----
-            existence_prob = 150 + int(100 * (0.5 + 0.5 * math.sin(t_sec * 1.3 + i * 0.01)))  # 150~250
+            # ✅ range는 항상 0..65535 등간격
+            pos_r = R_RAW_LUT[i]
+
+            # 나머지는 0만 피해서 적당히
+            existence_prob = 200
             detection_id = i
             object_id_ref = i & 0xFF
-            timestamp_diff = (frame_idx & 0xFFFF)
+            timestamp_diff = frame_idx & 0xFFFF
 
-            rcs = 500 + ((i * 7 + frame_idx * 3) % 3000)  # 500~3499
-            rcs_err = i16(int(20 * math.sin(t_sec * 2.0 + i * 0.02)))  # -20..20
+            rcs = 1000 + (i % 2000)
+            rcs_err = 0
 
-            snr = 10 + ((i * 3 + frame_idx) % 70)  # 10~79
-            snr_err = (i + frame_idx) % 6          # 0~5
+            snr = 40
+            snr_err = 1
 
-            multi_target_prob = (i + frame_idx) & 0xFF
-            ambiguity_group_id = (i // 2) & 0xFFFF
-            detection_ambiguity_prob = (i * 5 + frame_idx) & 0xFF
-            free_space_prob = (255 - (i + frame_idx) % 200) & 0xFF
+            multi_target_prob = 0
+            ambiguity_group_id = 0
+            detection_ambiguity_prob = 0
+            free_space_prob = 200
 
             num_valid_det_class = 1
             class_id = i % 4
-            det_class_type = bytes([class_id, 0, 0, 0])  # enumeration[4]
-            det_class_conf = bytes([min(100, 30 + (i % 70)), 0, 0, 0])  # uint8[4]
+            det_class_type = bytes([class_id, 0, 0, 0])
+            det_class_conf = bytes([80, 0, 0, 0])
 
-            # position (raw uint16)
-            #pos_r  = 1000 + ((i * 31 + frame_idx * 9) % 60000)  # 1000~60999
-            #pos_az = u16((i * 65535 // (NUM_DET - 1)) + rot)     # 0..65535 분포 + 회전
-            #pos_el = 200 + ((i * 11 + frame_idx * 4) % 5000)     # 200~5199
+            pos_r_err  = 5
+            pos_az_err = 5
+            pos_el_err = 5
 
-            # --- 골고루 산개되는 az/r (베이스 + 회전 + 작은 jitter) ---
-            #rot = u16(frame_idx * ROT_STEP_RAW)
-
-            #pos_az = u16(BASE_AZ_RAW[i] + rot)
-
-            # --- FOV 안에서만 스윙하는 오프셋(라디안) ---
-            theta_off = 0.6 * FOV_RAD * math.sin(t_sec * 0.6)  # 0.6은 스윙 크기
-
-            base_theta = raw_to_theta(BASE_AZ_RAW[i])
-            theta = base_theta + theta_off
-
-            # FOV 밖으로 나가지 않게 clamp
-            if theta < -FOV_RAD: theta = -FOV_RAD
-            if theta >  FOV_RAD: theta =  FOV_RAD
-
-            pos_az = theta_to_raw(theta)
-
-            # r은 베이스에 작은 흔들림만 (프레임/인덱스에 따라 부드럽게 변화)
-            jr = int(R_JITTER_RAW * math.sin(t_sec * 1.2 + i * 0.013))
-            pos_r = clamp_u16(BASE_R_RAW[i] + jr)
-
-            # elevation은 필요하면 비슷하게 흔들거나 고정
-            pos_el = 200 + ((i * 11 + frame_idx * 4) % 5000)
-
-            # position errors
-            pos_r_err  = 5 + (i % 20)
-            pos_az_err = 5 + ((i + 3) % 20)
-            pos_el_err = 5 + ((i + 7) % 20)
-
-            # velocity (raw uint16)
-            rel_v_r = u16(30000 + int(2000 * math.sin(t_sec * 1.7 + i * 0.015)))
-            rel_v_r_err = 1 + (i % 10)
-
-            power = 200 + ((i * 13 + frame_idx * 5) % 2000)  # 200~2199
+            rel_v_r = 30000
+            rel_v_r_err = 1
+            power = 500
 
             az_method = 1
             el_method = 1
+            pos_quality = bytes([2, 2, 2])
 
-            pos_quality = bytes([
-                1 + (i % 3),          # 1~3
-                1 + ((i // 3) % 3),   # 1~3
-                1 + ((i // 7) % 3),   # 1~3
-            ])
-
-            amb_model_az  = (i + frame_idx) & 0xFF
-            amb_model_el  = (i * 2 + frame_idx) & 0xFF
-            rel_v_quality = (i * 3 + frame_idx) & 0xFF
-            amb_model_vel = (i * 4 + frame_idx) & 0xFF
-            amb_index_vel = (i + frame_idx * 17) & 0xFFFF
+            amb_model_az  = 0
+            amb_model_el  = 0
+            rel_v_quality = 0
+            amb_model_vel = 0
+            amb_index_vel = 0
 
             DET.pack_into(
                 buf, base + i * DET.size,
@@ -445,9 +362,11 @@ class RadarDetectionMessage:
                 u8(num_valid_det_class),
                 fixed_bytes(det_class_type, 4),
                 fixed_bytes(det_class_conf, 4),
+
                 u16(pos_r),
                 u16(pos_az),
                 u16(pos_el),
+
                 u16(pos_r_err),
                 u16(pos_az_err),
                 u16(pos_el_err),
@@ -467,14 +386,19 @@ class RadarDetectionMessage:
         return bytes(buf)
 
 # =========================
-# Server main: 50ms마다 General -> Radar 순서 송신
+# Main: 50ms마다 General -> Radar 송신
 # =========================
-if __name__ == "__main__":
+def main():
     server_sock = create_server()
     conn, addr = server_sock.accept()
     print(f"Connected by {addr}")
 
-    # ---- General 초기화 ----
+    try:
+        conn.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1<<20)  # 1MB
+        conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+    except Exception:
+        pass
+
     gm = GeneralMessage(
         VehicleType=0,
         GearPosition=5,
@@ -515,8 +439,8 @@ if __name__ == "__main__":
         ProcessingTime=0,
 
         Reserved3=b"\x00"*66,
-        SampleCalibrationData=b"\x11"*2048,  # 0 말고 임의 채움(원하면 변화시켜도 됨)
-        Reserved4=b"\x22"*1024,              # 0 말고 임의 채움
+        SampleCalibrationData=b"\x11"*2048,
+        Reserved4=b"\x22"*1024,
 
         SacqElemNullingRatePct=0,
         Reserved5=0,
@@ -530,7 +454,6 @@ if __name__ == "__main__":
         Reserved10=b"\x00"*32,
     )
 
-    # ---- Radar 초기화 ----
     rd = RadarDetectionMessage(
         InterfaceVersion=bytes([1, 0, 0]),
         InterfaceID=1,
@@ -549,13 +472,16 @@ if __name__ == "__main__":
 
         RecognisedCapability=0,
         RecognisedStatus=0,
-        NumberValidDetections=100,  # 예: 헤더는 100만 유효라고 표시해도 됨(요구사항대로 2048이 아닐 수 있음)
+        NumberValidDetections=NUM_DET,
     )
 
     period = 0.05
     t0 = time.time()
-    next_t = time.time()
-    radar_frame = 0
+    next_t = time.perf_counter()
+    frame_idx = 0
+
+    hdr_general = make_header(METHOD_GENERAL, PAYLOAD_LEN_GENERAL)
+    hdr_radar   = make_header(METHOD_RADAR, PAYLOAD_LEN_RADAR)
 
     try:
         while True:
@@ -563,7 +489,7 @@ if __name__ == "__main__":
             t = now - t0
 
             # ---- General update ----
-            gm.SteeringAngle_deg = int(300 * math.sin(t))  # int16 raw
+            gm.SteeringAngle_deg = int(300 * math.sin(t))
             base = int(100 + 20 * math.sin(t * 0.5))
             gm.WheelSpeed_kmph_fl = base
             gm.WheelSpeed_kmph_fr = base
@@ -571,29 +497,30 @@ if __name__ == "__main__":
             gm.WheelSpeed_kmph_rr = base
             gm.FrameNum = (gm.FrameNum + 1) & 0xFFFFFFFF
 
-            general_payload = gm.to_bytes()
-            assert len(general_payload) == PAYLOAD_LEN_GENERAL
-            send_message(conn, HEADER_GENERAL_BYTES + general_payload)
+            send_message(conn, hdr_general + gm.to_bytes())
 
             # ---- Radar update ----
-            rd.Timestamp = u32(int((now - t0) * 1000))  # ms 예시
+            rd.Timestamp = u32(int((now - t0) * 1000))
             rd.CycleCounter = u32(rd.CycleCounter + 1)
-            radar_payload = rd.to_bytes(radar_frame, t)
-            radar_frame += 1
+            send_message(conn, hdr_radar + rd.to_bytes(frame_idx))
 
-            assert len(radar_payload) == PAYLOAD_LEN_RADAR
-            send_message(conn, HEADER_RADAR_BYTES + radar_payload)
+            frame_idx += 1
 
-            # ---- 50ms 주기 ----
+            # ---- 50ms period ----
             next_t += period
-            sleep_s = next_t - time.time()
+            sleep_s = next_t - time.perf_counter()
             if sleep_s > 0:
                 time.sleep(sleep_s)
             else:
-                next_t = time.time()
+                next_t = time.perf_counter()
 
+    except (BrokenPipeError, ConnectionResetError):
+        print("Client disconnected.")
     except KeyboardInterrupt:
         print("Server shutting down.")
     finally:
         conn.close()
         server_sock.close()
+
+if __name__ == "__main__":
+    main()

@@ -208,6 +208,32 @@ class GeneralMessage:
             fixed_bytes(self.Reserved9, 8),
             fixed_bytes(self.Reserved10, 32),
         )
+    
+@dataclass
+class RadarDetectionMessage:
+    #Radar Detection Header
+    InterfaceVersion: bytes #3bytes uinit8_t[3]
+    InterfaceID: int #1byte enumeatuion
+    NumberOfSensors: int #1byte uint8_t
+    SensorID: int #1byte uint8_t
+    Timestamp: int #4bytes uint32_t
+    CycleCounter: int #4bytes uint32_t
+    CycleTime: int #2bytes uint16_t
+    Variation: int #2bytes uint16_t
+    DataQualifier: int #1byte enumeatuion
+
+    RadialVelocityAmbiguityDomain_Begin_end: int #4bytes uint16_t[2]
+    RangeAmbiguityDomain_Begin_end: int #4bytes uint16_t[2]
+    AngleAzumuthAmbiguityDomain_Begin_end: int #4bytes uint16_t[2]
+    AngleElevationAmbiguityDomain_Begin_end: int #4bytes uint16_t[2]
+
+    Recognised_detections_capability: int #2bytes uint16_t
+    Recognised_detections_status: int #1byte enumeatuion
+    NumberValidDetections: int #2bytes uint16_t
+
+    #Radar Detection Payload (Entity Data)
+    #Detection[2048]
+    #inner information
 
 def create_server():
     server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
