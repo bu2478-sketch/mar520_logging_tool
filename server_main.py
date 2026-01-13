@@ -29,6 +29,47 @@ METHOD_RADAR   = 0x8002
 LEN_MINUS = 8  # length = payload_len + 8
 
 # =========================
+# GeneralMessage (payload 3368B)
+# =========================
+FMT_GENERAL_PAYLOAD = ENDIAN + "BBhBHBBHBHB B4H8sBBhhhhh20s50s4s32sIHHHH66s2048s1024sHHHH4s8s8s8s32s"
+GEN = struct.Struct(FMT_GENERAL_PAYLOAD)
+PAYLOAD_LEN_GENERAL = 3368
+assert GEN.size == PAYLOAD_LEN_GENERAL
+
+
+# =========================
+# RadarDetection (payload 112680B)
+# RadarPayload = RadarInternalHeader(40B) + Detection Entity (55B)*2048
+# =========================
+
+# RadarPayload = RadarInternalHeader(40B) 
+FMT_RD_HEADER = ENDIAN + "3sBBBIIHHB8HHBH"
+RD_HEADER = struct.Struct(FMT_RD_HEADER)
+assert RD_HEADER.size == 40
+
+# Detection Entity Struct (55B) * 2048
+FMT_DET = ENDIAN + "BHBHHhBBBHBBB4s4sHHHHHHHHHBB3sBBBBH"
+DET = struct.Struct(FMT_DET)
+assert DET.size == 55
+
+NUM_DET = 2048
+PAYLOAD_LEN_RADAR = 40 + 55 * NUM_DET
+assert PAYLOAD_LEN_RADAR == 112680
+
+# =========================
+# Datas for RadarSimulation
+# =========================
+ANG_RAW_MAX = 31416
+ANG_CENTER  = ANG_RAW_MAX // 2  # 15708
+
+MAX_DELTA_RAW = int(round(math.radians(30.0) / 0.0001))
+
+ROT_FRAMES = 240  
+
+R_RAW_MAX = 65535
+R_RAW_LUT = [int(round(i * R_RAW_MAX / (NUM_DET - 1))) for i in range(NUM_DET)]
+
+# =========================
 # Utils
 # =========================
 def fixed_bytes(b: bytes, n: int) -> bytes:
@@ -39,7 +80,6 @@ def fixed_bytes(b: bytes, n: int) -> bytes:
 def u8(x: int) -> int:   return x & 0xFF
 def u16(x: int) -> int:  return x & 0xFFFF
 def u32(x: int) -> int:  return x & 0xFFFFFFFF
-
 def i16(x: int) -> int:
     x = int(x)
     if x < -32768: return -32768
@@ -49,6 +89,19 @@ def i16(x: int) -> int:
 def clamp(x: int, lo: int, hi: int) -> int:
     return lo if x < lo else hi if x > hi else x
 
+
+def create_server():
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    s.bind((HOST, PORT))
+    s.listen(1)
+    print(f"The Server on {HOST}:{PORT}")
+    return s
+
+def send_message(conn, b: bytes):
+    conn.sendall(b)
+
+
 def make_header(method_id: int, payload_len: int) -> bytes:
     length_field = payload_len + LEN_MINUS
     return HDR.pack(
@@ -57,93 +110,60 @@ def make_header(method_id: int, payload_len: int) -> bytes:
         PROTO_VER, IF_VER, MSG_TYPE, RESERVED
     )
 
-def create_server():
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    s.bind((HOST, PORT))
-    s.listen(1)
-    print(f"Server listening on {HOST}:{PORT}")
-    return s
-
-def send_message(conn, b: bytes):
-    conn.sendall(b)
-
-# =========================
-# GeneralMessage (payload 3368B)
-# =========================
-FMT_GENERAL_PAYLOAD = (
-    ENDIAN +
-    "B" "B" "h" "B" "H" "B" "B" "H" "B" "H" "B" "B"
-    "4H"
-    "8s"
-    "B" "B"
-    "h" "h" "h" "h" "h"
-    "20s" "50s" "4s" "32s"
-    "I" "H" "H" "H" "H"
-    "66s"
-    "2048s"
-    "1024s"
-    "H" "H" "H" "H"
-    "4s" "8s" "8s" "8s" "32s"
-)
-GEN = struct.Struct(FMT_GENERAL_PAYLOAD)
-PAYLOAD_LEN_GENERAL = 3368
-assert GEN.size == PAYLOAD_LEN_GENERAL
-
 @dataclass
 class GeneralMessage:
-    VehicleType: int
-    GearPosition: int
-    SteeringAngle_deg: int
-    YawSignalStatus: int
-    YawRate_dps: int
-    EngineRunningStatus: int
-    EngineStatus: int
-    AcceleratorPedalValue: int
-    AppliedAcceleratorPedalStatus: int
-    ActualAccelerationPedalValue: int
-    GearSelectDisplay: int
-    EngineTargetGear: int
+    VehicleType: int #고정시키기 0~254
+    GearPosition: int #고정시키기 0~7
+    SteeringAngle_deg: int #값 범위 0~65534 변화시켜도되는값 
+    YawSignalStatus: int #0x0000 No failure, 0x0001 IMU_Yawrate_failure 0x0010 Initialization_is_running 0x0100 Reserved 0x1000 Not_applied 4가지 값 중 하나
+    YawRate_dps: int #0~65534 변화시켜도되는값
+    EngineRunningStatus: int #고정시키기 0~3
+    EngineStatus: int #고정시키기 0~7
+    AcceleratorPedalValue: int #0x0000 전혀 패달 밟지않음 0x3FEH 100% 밟음 0x3FFH error 3개의 값중 하나 
+    AppliedAcceleratorPedalStatus: int #고정시키기 0~3
+    ActualAccelerationPedalValue: int #0x0000 전혀 패달 밟지않음 0x3FEH 100% 밟음 0x3FFH error 3개의 값중 하나 
+    GearSelectDisplay: int #고정시키기 0~15
+    EngineTargetGear: int ##고정시키기 0~14
 
-    WheelSpeed_kmph_fl: int
-    WheelSpeed_kmph_fr: int
-    WheelSpeed_kmph_rl: int
-    WheelSpeed_kmph_rr: int
+    WheelSpeed_kmph_fl: int #값 범위 0~16383 변화시켜도되는값
+    WheelSpeed_kmph_fr: int #값 범위 0~16383 변화시켜도되는값
+    WheelSpeed_kmph_rl: int #값 범위 0~16383 변화시켜도되는값
+    WheelSpeed_kmph_rr: int #값 범위 0~16383 변화시켜도되는값
 
-    Reserved1: bytes
-    SensorPosition: int
-    MountingDirection: int
-    XOffset_m: int
-    YOffset_m: int
-    ZOffset_m: int
-    AzimuthEOLOffset_deg: int
-    ElvevationEOLOffset_deg: int
+    Reserved1: bytes #고정 0
+    SensorPosition: int #센서위치정보 고정
+    MountingDirection: int #장착방향 고정
+    XOffset_m: int #고정
+    YOffset_m: int #고정
+    ZOffset_m: int #고정
+    AzimuthEOLOffset_deg: int  #고정
+    ElvevationEOLOffset_deg: int # 고정
 
-    Reserved2: bytes
-    ECU_Id: bytes
-    HW_Version: bytes
-    SW_Version: bytes
+    Reserved2: bytes #고정 0
+    ECU_Id: bytes # 50바이트 ECUID 문자열 고정
+    HW_Version: bytes # 4바이트문자열고정
+    SW_Version: bytes # 32바이트문자열고정
 
-    FrameNum: int
-    CenterFrequency: int
-    PRI_us: int
-    TotalTargetNum: int
-    ProcessingTime: int
+    FrameNum: int #값 범위 0~4294967295 변화시켜도되는값
+    CenterFrequency: int #7600~8100사잇값으로 고정
+    PRI_us: int #고정시키기 
+    TotalTargetNum: int #2048이라는 값으로 고정
+    ProcessingTime: int #0~65535 그냥 값고정시킬까 의문,,,
 
-    Reserved3: bytes
-    SampleCalibrationData: bytes
-    Reserved4: bytes
+    Reserved3: bytes #고정 0
+    SampleCalibrationData: bytes #2048바이트 고정 0
+    Reserved4: bytes #고정 0
 
-    SacqElemNullingRatePct: int
-    Reserved5: int
-    CurrentNoiseLevel_mag: int
-    PrevNoiseLevel_mag: int
+    SacqElemNullingRatePct: int #0~10000중 사이에 변화시켜  도되지만 값 고정 
+    Reserved5: int # 고정0
+    CurrentNoiseLevel_mag: int # 변화시켜도 되는 값이지만 고정시키기
+    PrevNoiseLevel_mag: int # 변화시켜도 되는 값이지만 고정시키기
 
-    Reserved6: bytes
-    Reserved7: bytes
-    Reserved8: bytes
-    Reserved9: bytes
-    Reserved10: bytes
+    Reserved6: bytes #고정
+    Reserved7: bytes #고정
+    Reserved8: bytes  #고정
+    Reserved9: bytes #고정  
+    Reserved10: bytes #고정
 
     def to_bytes(self) -> bytes:
         return GEN.pack(
@@ -201,42 +221,8 @@ class GeneralMessage:
             fixed_bytes(self.Reserved10, 32),
         )
 
-# =========================
-# RadarDetection (payload 112680B)
-# RadarPayload = RadarInternalHeader(40B) + DetectionEntry(55B)*2048
-# =========================
-FMT_RD_HEADER = ENDIAN + "3sBBBIIHHB8HHBH"
-RD_HEADER = struct.Struct(FMT_RD_HEADER)
-assert RD_HEADER.size == 40
-
-FMT_DET = ENDIAN + "BHBHHhBBBHBBB4s4sHHHHHHHHHBB3sBBBBH"
-DET = struct.Struct(FMT_DET)
-assert DET.size == 55
-
-NUM_DET = 2048
-PAYLOAD_LEN_RADAR = 40 + 55 * NUM_DET
-assert PAYLOAD_LEN_RADAR == 112680
-
-# ===== angle raw domain =====
-ANG_RAW_MAX = 31416
-ANG_CENTER  = ANG_RAW_MAX // 2  # 15708
-
-# ✅ 고정 "원뿔 크기" (FOV 반각) : 30deg 기준이면 이렇게
-# rad(30)/0.0001 ≈ 5236.62
-MAX_DELTA_RAW = int(round(math.radians(30.0) / 0.0001))
-
-# ✅ 회전만: 한 바퀴를 몇 프레임에 돌릴지
-ROT_FRAMES = 240  # 12초 @50ms
-
-# ✅ range raw LUT: 0..65535 등간격 (항상 동일)
-R_RAW_MAX = 65535
-R_RAW_LUT = [int(round(i * R_RAW_MAX / (NUM_DET - 1))) for i in range(NUM_DET)]
-
 def frame_to_az_el(frame_idx: int) -> tuple[int, int]:
-    """
-    고정 크기 원뿔(반지름 MAX_DELTA_RAW)에서
-    중심축(ANG_CENTER) 기준으로 원형으로만 회전.
-    """
+
     phi = 2.0 * math.pi * ((frame_idx % ROT_FRAMES) / ROT_FRAMES)
 
     d_az = int(round(MAX_DELTA_RAW * math.cos(phi)))
@@ -298,14 +284,11 @@ class RadarDetectionMessage:
 
         base = RD_HEADER.size
 
-        # ✅ 한 프레임에서 2048개는 모두 같은 방향(az/el)
         pos_az, pos_el = frame_to_az_el(frame_idx)
 
         for i in range(NUM_DET):
-            # ✅ range는 항상 0..65535 등간격
             pos_r = R_RAW_LUT[i]
 
-            # 나머지는 0만 피해서 적당히
             existence_prob = 200
             detection_id = i
             object_id_ref = i & 0xFF
@@ -385,9 +368,6 @@ class RadarDetectionMessage:
 
         return bytes(buf)
 
-# =========================
-# Main: 50ms마다 General -> Radar 송신
-# =========================
 def main():
     server_sock = create_server()
     conn, addr = server_sock.accept()
@@ -428,14 +408,14 @@ def main():
         ElvevationEOLOffset_deg=0,
 
         Reserved2=b"\x00"*20,
-        ECU_Id=b"ECU123",
-        HW_Version=b"HW01",
-        SW_Version=b"SW01",
+        ECU_Id = b"ECU123"[:50].ljust(50, b"\x00"), 
+        HW_Version = b"HW01"[:4].ljust(4, b"\x00"),
+        SW_Version = b"SW01"[:32].ljust(32, b"\x00"),
 
         FrameNum=0,
-        CenterFrequency=0,
+        CenterFrequency=7800,
         PRI_us=0,
-        TotalTargetNum=0,
+        TotalTargetNum=2048,
         ProcessingTime=0,
 
         Reserved3=b"\x00"*66,
@@ -489,8 +469,9 @@ def main():
             t = now - t0
 
             # ---- General update ----
-            gm.SteeringAngle_deg = int(300 * math.sin(t))
-            base = int(100 + 20 * math.sin(t * 0.5))
+            gm.SteeringAngle_deg = int(30000* math.sin(t))
+            gm.YawRate_dps = int(30000 * math.sin(t * 0.7)+ 32768)
+            base = int(8000 + 8000 * math.sin(t * 0.5))
             gm.WheelSpeed_kmph_fl = base
             gm.WheelSpeed_kmph_fr = base
             gm.WheelSpeed_kmph_rl = base
