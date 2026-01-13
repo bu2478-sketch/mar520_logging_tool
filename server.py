@@ -2,110 +2,211 @@ import socket
 import time
 import struct
 from dataclasses import dataclass
+import math
 
-# ---- 설정값 ----
 HOST = "0.0.0.0"
 PORT = 4545
 
-# ---- Header 상수 ----
+# =========================
+# Header 고정값(표 기준)
+# =========================
+ENDIAN = ">"  # 사양서가 little이면 "<"
+FMT_HEADER = ENDIAN + "HHIHHBBBB"  # 16 bytes
+
 SERVICE_ID = 0x6000
 METHOD_GENERAL = 0x8001
-CLIENT_ID  = 0x0001
-PROTO_VER  = 0x01
-IF_VER     = 0x01
-MSG_TYPE   = 0x02
-RESERVED   = 0x00
+LENGTH_GENERAL = 0x0D30  # 3376 (표 기준)
+CLIENT_ID = 0x0001
+SESSION_ID = 0xFFFF      # 지금은 고정
+PROTO_VER = 0x01
+IF_VER = 0x01
+MSG_TYPE = 0x02
+RESERVED = 0x00
 
-ENDIAN = ">"   # Big-endian
+HEADER_GENERAL_BYTES = struct.pack(
+    FMT_HEADER,
+    SERVICE_ID,
+    METHOD_GENERAL,
+    LENGTH_GENERAL,
+    CLIENT_ID,
+    SESSION_ID,
+    PROTO_VER,
+    IF_VER,
+    MSG_TYPE,
+    RESERVED,
+)
 
-# SOME/IP Header Format:
-# ServiceID(H), MethodID(H), Length(I), ClientID(H), SessionID(H), 
-# Proto(B), IF(B), Type(B), Res(B)
-FMT_HEADER = ENDIAN + "HHIHHBBBB"
-
-# ---- Payload Format ----
-COMPLEX_FMT = "hh"  # int16 I, int16 Q
-
+# =========================
+# General Payload 포맷
+# - Complex_t[256], Complex_t[128]은 bytes 블록으로 처리
+#   (각각 2048, 1024 bytes)  -> payload total 3368 맞춤
+# =========================
 FMT_PAYLOAD = (
     ENDIAN +
-    "B"  # VehicleType
-    "B"  # GearPosition
-    "h"  # SteeringAngle
-    "B"  # YawSignalStatus
-    "H"  # YawRate_dps
-    "B"  # EngineRunningStatus
-    "B"  # EngineStatus
-    "H"  # AcceleratorPedalValue
-    "B"  # AppliedAcceleratorPedalStatus
-    "H"  # ActualAccelerationPedalValue
-    "B"  # GearSelectDisplay
-    "B"  # EngineTargetGear
-    "4H" # WheelSpeed_kmph[4]
-    "8s" # Reserved1
-    "B"  # SensorPosition
-    "B"  # MountingDirection
-    "h"  # XOffset_m
-    "h"  # YOffset_m
-    "h"  # ZOffset_m
-    "h"  # AzimuthEOLOffset_deg
-    "h"  # ElvevationEOLOffset_deg
-    "20s" # Reserved2
-    "50s" # ECU_Id
-    "4s"  # HW_Version
-    "32s" # SW_Version
-    "I"   # FrameNum
-    "H"   # CenterFrequency
-    "H"   # PRI_us
-    "H"   # TotalTargetNum
-    "H"   # ProcessingTime
-    "66s" # Reserved3
-    + (COMPLEX_FMT * 256)  # SampleCalibrationData: 512 shorts
-    + (COMPLEX_FMT * 128)  # Reserved4 (Complex): 256 shorts
-    + "H"  # SacqElemNullingRatePct
-    + "H"  # Reserved5
-    + "H"  # CurrentNoiseLevel_mag
-    + "H"  # PrevNoiseLevel_mag
-    + "4s"  # Reserved6
-    + "8s"  # Reserved7
-    + "8s"  # Reserved8
-    + "8s"  # Reserved9
-    + "32s" # Reserved10
+    "B"  # uint8_t
+    "B"  # uint8_t
+    "h"  # int16_t
+    "B"  # uint8_t
+    "H"  # uint16_t
+    "B"  # uint8_t
+    "B"  # uint8_t
+    "H"  # uint16_t
+    "B"  # uint8_t
+    "H"  # uint16_t
+    "B"  # uint8_t
+    "B"  # uint8_t
+    "4H" # uint16_t[4]
+    "8s" # char[8]
+    "B"  # uint8_t
+    "B"  # uint8_t
+    "h"  # int16_t
+    "h"  # int16_t
+    "h"  # int16_t
+    "h"  # int16_t
+    "h"  # int16_t
+    "20s" # char[20]
+    "50s" # char[50]
+    "4s"  # char[4]
+    "32s" # char[32]
+    "I"   # uint32_t
+    "H"   # uint16_t
+    "H"   # uint16_t
+    "H"   # uint16_t
+    "H"   # uint16_t
+    "66s"  # char[66]
+    "2048s" # Complex_t[256] 블록 (2048 bytes)
+    "1024s" # Complex_t[128] 블록 (1024 bytes)
+    "H"   # uint16_t  (SacqElemNullingRatePct)
+    "H"   # uint16_t  (Reserved5)
+    "H"   # uint16_t  (CurrentNoiseLevel_mag)
+    "H"   # uint16_t  (PrevNoiseLevel_mag)
+    "4s"  # char[4]
+    "8s"  # char[8]
+    "8s"  # char[8]
+    "8s"  # char[8]
+    "32s" # char[32]
 )
+
+PAYLOAD_LEN_GENERAL = 3368
+assert struct.calcsize(FMT_HEADER) == 16
+assert struct.calcsize(FMT_PAYLOAD) == PAYLOAD_LEN_GENERAL
+
+def fixed_bytes(b: bytes, n: int) -> bytes:
+    """char[N] 필드는 N바이트 정확히 맞춰야 해서 패딩/잘라내기"""
+    if len(b) >= n:
+        return b[:n]
+    return b + (b"\x00" * (n - len(b)))
 
 @dataclass
 class GeneralMessage:
-    # 값 변경이 필요한 필드들만 기본값 설정
-    FrameNum: int = 0
-    SteeringAngle: int = 100
-    
+    VehicleType: int
+    GearPosition: int
+    SteeringAngle_deg: int      # int16 raw
+    YawSignalStatus: int
+    YawRate_dps: int
+    EngineRunningStatus: int
+    EngineStatus: int
+    AcceleratorPedalValue: int
+    AppliedAcceleratorPedalStatus: int
+    ActualAccelerationPedalValue: int
+    GearSelectDisplay: int
+    EngineTargetGear: int
+
+    WheelSpeed_kmph_fl: int
+    WheelSpeed_kmph_fr: int
+    WheelSpeed_kmph_rl: int
+    WheelSpeed_kmph_rr: int
+
+    Reserved1: bytes            # 8
+    SensorPosition: int
+    MountingDirection: int
+    XOffset_m: int              # int16
+    YOffset_m: int              # int16
+    ZOffset_m: int              # int16
+    AzimuthEOLOffset_deg: int   # int16
+    ElvevationEOLOffset_deg: int# int16
+
+    Reserved2: bytes            # 20
+    ECU_Id: bytes               # 50
+    HW_Version: bytes           # 4
+    SW_Version: bytes           # 32
+
+    FrameNum: int               # uint32
+    CenterFrequency: int        # uint16
+    PRI_us: int                 # uint16
+    TotalTargetNum: int         # uint16
+    ProcessingTime: int         # uint16
+
+    Reserved3: bytes            # 66
+    SampleCalibrationData: bytes# 2048
+    Reserved4: bytes            # 1024
+
+    SacqElemNullingRatePct: int # uint16
+    Reserved5: int              # ✅ uint16 (bytes 아님)
+    CurrentNoiseLevel_mag: int  # uint16
+    PrevNoiseLevel_mag: int     # uint16
+
+    Reserved6: bytes            # 4
+    Reserved7: bytes            # 8
+    Reserved8: bytes            # 8
+    Reserved9: bytes            # 8
+    Reserved10: bytes           # 32
+
     def to_bytes(self) -> bytes:
-        # 1. 고정/더미 데이터 생성
-        wheel_speed = [100, 100, 100, 100] # FL, FR, RL, RR
-        
-        # Complex Data 생성 (I=0, Q=0)
-        # fmt에 'h'가 512개(256*2) 나오므로 인자도 512개가 필요함
-        complex_data_256 = [0] * (256 * 2) 
-        complex_data_128 = [0] * (128 * 2)
-
-        # 문자열 안전 변환 (bytes로 인코딩 후 길이 맞춤)
-        ecu_id = b"ECU-TEST-001".ljust(50, b'\x00')
-        hw_ver = b"v1.0".ljust(4, b'\x00')
-        sw_ver = b"SW-2024.01".ljust(32, b'\x00')
-
         return struct.pack(
             FMT_PAYLOAD,
-            0, 5, self.SteeringAngle, 0, 0, 0, 0, 0, 0, 0, 0, 0, # 기본 필드
-            *wheel_speed,          # 리스트 언패킹 (4H)
-            b'\x00'*8,             # Reserved1
-            1, 1, 0, 0, 0, 0, 0,   # Offsets
-            b'\x00'*20,            # Reserved2
-            ecu_id, hw_ver, sw_ver,
-            self.FrameNum, 77000, 50, 10, 200, # Radar info
-            b'\x00'*66,            # Reserved3
-            *complex_data_256,     # 리스트 언패킹 (512개 인자)
-            *complex_data_128,     # 리스트 언패킹 (256개 인자)
-            80, 0, 150, 140,       # Noise info
-            b'\x00'*4, b'\x00'*8, b'\x00'*8, b'\x00'*8, b'\x00'*32 # Reserved 6~10
+            self.VehicleType,
+            self.GearPosition,
+            self.SteeringAngle_deg,
+            self.YawSignalStatus,
+            self.YawRate_dps,
+            self.EngineRunningStatus,
+            self.EngineStatus,
+            self.AcceleratorPedalValue,
+            self.AppliedAcceleratorPedalStatus,
+            self.ActualAccelerationPedalValue,
+            self.GearSelectDisplay,
+            self.EngineTargetGear,
+
+            self.WheelSpeed_kmph_fl,
+            self.WheelSpeed_kmph_fr,
+            self.WheelSpeed_kmph_rl,
+            self.WheelSpeed_kmph_rr,
+
+            fixed_bytes(self.Reserved1, 8),
+            self.SensorPosition,
+            self.MountingDirection,
+            self.XOffset_m,
+            self.YOffset_m,
+            self.ZOffset_m,
+            self.AzimuthEOLOffset_deg,
+            self.ElvevationEOLOffset_deg,
+
+            fixed_bytes(self.Reserved2, 20),
+            fixed_bytes(self.ECU_Id, 50),
+            fixed_bytes(self.HW_Version, 4),
+            fixed_bytes(self.SW_Version, 32),
+
+            self.FrameNum,
+            self.CenterFrequency,
+            self.PRI_us,
+            self.TotalTargetNum,
+            self.ProcessingTime,
+
+            fixed_bytes(self.Reserved3, 66),
+            fixed_bytes(self.SampleCalibrationData, 2048),
+            fixed_bytes(self.Reserved4, 1024),
+
+            self.SacqElemNullingRatePct,
+            self.Reserved5,
+            self.CurrentNoiseLevel_mag,
+            self.PrevNoiseLevel_mag,
+
+            fixed_bytes(self.Reserved6, 4),
+            fixed_bytes(self.Reserved7, 8),
+            fixed_bytes(self.Reserved8, 8),
+            fixed_bytes(self.Reserved9, 8),
+            fixed_bytes(self.Reserved10, 32),
         )
 
 def create_server():
@@ -116,57 +217,98 @@ def create_server():
     print(f"Server listening on {HOST}:{PORT}")
     return server_sock
 
+def send_message(conn, message: bytes):
+    # TCP는 sendall 쓰는게 제일 안전/간단
+    conn.sendall(message)
+
 if __name__ == "__main__":
     server_sock = create_server()
     conn, addr = server_sock.accept()
     print(f"Connected by {addr}")
-    
-    session_id = 0
-    frame_count = 0
+
+    # 초기 payload (대부분 0으로)
+    gm = GeneralMessage(
+        VehicleType=0,
+        GearPosition=5,
+        SteeringAngle_deg=0,
+        YawSignalStatus=0,
+        YawRate_dps=0,
+        EngineRunningStatus=1,
+        EngineStatus=2,
+        AcceleratorPedalValue=0,
+        AppliedAcceleratorPedalStatus=0,
+        ActualAccelerationPedalValue=0,
+        GearSelectDisplay=0,
+        EngineTargetGear=0,
+
+        WheelSpeed_kmph_fl=0,
+        WheelSpeed_kmph_fr=0,
+        WheelSpeed_kmph_rl=0,
+        WheelSpeed_kmph_rr=0,
+
+        Reserved1=b"\x00"*8,
+        SensorPosition=0,
+        MountingDirection=0,
+        XOffset_m=0,
+        YOffset_m=0,
+        ZOffset_m=0,
+        AzimuthEOLOffset_deg=0,
+        ElvevationEOLOffset_deg=0,
+
+        Reserved2=b"\x00"*20,
+        ECU_Id=b"ECU123",
+        HW_Version=b"HW01",
+        SW_Version=b"SW01",
+
+        FrameNum=0,
+        CenterFrequency=0,
+        PRI_us=0,
+        TotalTargetNum=0,
+        ProcessingTime=0,
+
+        Reserved3=b"\x00"*66,
+        SampleCalibrationData=b"\x00"*2048,
+        Reserved4=b"\x00"*1024,
+
+        SacqElemNullingRatePct=0,
+        Reserved5=0,
+        CurrentNoiseLevel_mag=0,
+        PrevNoiseLevel_mag=0,
+
+        Reserved6=b"\x00"*4,
+        Reserved7=b"\x00"*8,
+        Reserved8=b"\x00"*8,
+        Reserved9=b"\x00"*8,
+        Reserved10=b"\x00"*32,
+    )
+
+    period = 0.05
+    t0 = time.time()
 
     try:
         while True:
-            # 1. Payload 생성
-            # 시뮬레이션을 위해 FrameNum 등을 증가시킴
-            msg = GeneralMessage(FrameNum=frame_count, SteeringAngle=100 + (frame_count % 10))
-            payload = msg.to_bytes()
+            t = time.time() - t0
 
-            # 2. Header 생성
-            # Length = Payload 길이 + 8 bytes (ClientID ~ Reserved)
-            payload_len = len(payload)
-            header_len_field = payload_len + 8 
+            # 예시 시뮬레이션: steering / wheel speed / frame 증가
+            gm.SteeringAngle_deg = int(300 * math.sin(t))  # int16 raw
+            base = int(100 + 20 * math.sin(t * 0.5))
+            gm.WheelSpeed_kmph_fl = base
+            gm.WheelSpeed_kmph_fr = base
+            gm.WheelSpeed_kmph_rl = base
+            gm.WheelSpeed_kmph_rr = base
 
-            header = struct.pack(
-                FMT_HEADER,
-                SERVICE_ID,
-                METHOD_GENERAL,
-                header_len_field,
-                CLIENT_ID,
-                session_id,
-                PROTO_VER,
-                IF_VER,
-                MSG_TYPE,
-                RESERVED
-            )
+            gm.FrameNum = (gm.FrameNum + 1) & 0xFFFFFFFF
 
-            # 3. 전송 (Header + Payload)
-            conn.sendall(header + payload)
-            
-            # 로그 출력 (선택)
-            if frame_count % 20 == 0: # 너무 빠르니 가끔 출력
-                print(f"Sent Frame: {frame_count}, SessionID: {session_id}, Size: {len(header) + len(payload)}")
+            payload_bytes = gm.to_bytes()
+            assert len(payload_bytes) == PAYLOAD_LEN_GENERAL
 
-            # 4. 상태 업데이트
-            session_id = (session_id + 1) & 0xFFFF # 0~65535 순환
-            frame_count += 1
-            
-            # 5. 주기 유지 (50ms)
-            time.sleep(0.05)
+            packet = HEADER_GENERAL_BYTES + payload_bytes
+            send_message(conn, packet)
+
+            time.sleep(period)
 
     except KeyboardInterrupt:
-        print("\nServer shutting down.")
-    except Exception as e:
-        print(f"Error occurred: {e}")
+        print("Server shutting down.")
     finally:
-        if 'conn' in locals(): conn.close()
+        conn.close()
         server_sock.close()
