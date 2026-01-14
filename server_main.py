@@ -1,3 +1,4 @@
+import random
 import socket
 import struct
 import time
@@ -109,61 +110,71 @@ def make_header(method_id: int, payload_len: int) -> bytes:
         CLIENT_ID, SESSION_ID,
         PROTO_VER, IF_VER, MSG_TYPE, RESERVED
     )
+def frame_to_az_el(frame_idx: int) -> tuple[int, int]:
+
+    phi = 2.0 * math.pi * ((frame_idx % ROT_FRAMES) / ROT_FRAMES)
+
+    d_az = int(round(MAX_DELTA_RAW * math.cos(phi)))
+    d_el = int(round(MAX_DELTA_RAW * math.sin(phi)))
+
+    pos_az = clamp(ANG_CENTER + d_az, 0, ANG_RAW_MAX)
+    pos_el = clamp(ANG_CENTER + d_el, 0, ANG_RAW_MAX)
+    return pos_az, pos_el
 
 @dataclass
 class GeneralMessage:
-    VehicleType: int #고정시키기 0~254
-    GearPosition: int #고정시키기 0~7
-    SteeringAngle_deg: int #값 범위 0~65534 변화시켜도되는값 
-    YawSignalStatus: int #0x0000 No failure, 0x0001 IMU_Yawrate_failure 0x0010 Initialization_is_running 0x0100 Reserved 0x1000 Not_applied 4가지 값 중 하나
-    YawRate_dps: int #0~65534 변화시켜도되는값
-    EngineRunningStatus: int #고정시키기 0~3
-    EngineStatus: int #고정시키기 0~7
-    AcceleratorPedalValue: int #0x0000 전혀 패달 밟지않음 0x3FEH 100% 밟음 0x3FFH error 3개의 값중 하나 
-    AppliedAcceleratorPedalStatus: int #고정시키기 0~3
-    ActualAccelerationPedalValue: int #0x0000 전혀 패달 밟지않음 0x3FEH 100% 밟음 0x3FFH error 3개의 값중 하나 
-    GearSelectDisplay: int #고정시키기 0~15
-    EngineTargetGear: int ##고정시키기 0~14
+    VehicleType: int 
+    GearPosition: int 
+    SteeringAngle_deg: int 
+    YawSignalStatus: int 
+    YawRate_dps: int 
+    EngineRunningStatus: int 
+    EngineStatus: int 
+    AcceleratorPedalValue: int  
+    AppliedAcceleratorPedalStatus: int 
+    ActualAccelerationPedalValue: int  
+    GearSelectDisplay: int 
+    EngineTargetGear: int 
 
-    WheelSpeed_kmph_fl: int #값 범위 0~16383 변화시켜도되는값
-    WheelSpeed_kmph_fr: int #값 범위 0~16383 변화시켜도되는값
-    WheelSpeed_kmph_rl: int #값 범위 0~16383 변화시켜도되는값
-    WheelSpeed_kmph_rr: int #값 범위 0~16383 변화시켜도되는값
+    WheelSpeed_kmph_fl: int 
+    WheelSpeed_kmph_fr: int 
+    WheelSpeed_kmph_rl: int 
+    WheelSpeed_kmph_rr: int 
 
-    Reserved1: bytes #고정 0
-    SensorPosition: int #센서위치정보 고정
-    MountingDirection: int #장착방향 고정
-    XOffset_m: int #고정
-    YOffset_m: int #고정
-    ZOffset_m: int #고정
-    AzimuthEOLOffset_deg: int  #고정
-    ElvevationEOLOffset_deg: int # 고정
+    Reserved1: bytes 
+    SensorPosition: int 
+    MountingDirection: int 
+    XOffset_m: int 
+    YOffset_m: int 
+    ZOffset_m: int 
+    AzimuthEOLOffset_deg: int  
+    ElvevationEOLOffset_deg: int 
 
-    Reserved2: bytes #고정 0
-    ECU_Id: bytes # 50바이트 ECUID 문자열 고정
-    HW_Version: bytes # 4바이트문자열고정
-    SW_Version: bytes # 32바이트문자열고정
+    Reserved2: bytes 
+    ECU_Id: bytes 
+    HW_Version: bytes 
+    SW_Version: bytes 
 
-    FrameNum: int #값 범위 0~4294967295 변화시켜도되는값
-    CenterFrequency: int #7600~8100사잇값으로 고정
-    PRI_us: int #고정시키기 
-    TotalTargetNum: int #2048이라는 값으로 고정
-    ProcessingTime: int #0~65535 그냥 값고정시킬까 의문,,,
+    FrameNum: int 
+    CenterFrequency: int
+    PRI_us: int 
+    TotalTargetNum: int 
+    ProcessingTime: int 
 
-    Reserved3: bytes #고정 0
-    SampleCalibrationData: bytes #2048바이트 고정 0
-    Reserved4: bytes #고정 0
+    Reserved3: bytes 
+    SampleCalibrationData: bytes 
+    Reserved4: bytes 
 
-    SacqElemNullingRatePct: int #0~10000중 사이에 변화시켜  도되지만 값 고정 
-    Reserved5: int # 고정0
-    CurrentNoiseLevel_mag: int # 변화시켜도 되는 값이지만 고정시키기
-    PrevNoiseLevel_mag: int # 변화시켜도 되는 값이지만 고정시키기
+    SacqElemNullingRatePct: int 
+    Reserved5: int 
+    CurrentNoiseLevel_mag: int 
+    PrevNoiseLevel_mag: int 
 
-    Reserved6: bytes #고정
-    Reserved7: bytes #고정
-    Reserved8: bytes  #고정
-    Reserved9: bytes #고정  
-    Reserved10: bytes #고정
+    Reserved6: bytes 
+    Reserved7: bytes 
+    Reserved8: bytes  
+    Reserved9: bytes 
+    Reserved10: bytes 
 
     def to_bytes(self) -> bytes:
         return GEN.pack(
@@ -220,17 +231,6 @@ class GeneralMessage:
             fixed_bytes(self.Reserved9, 8),
             fixed_bytes(self.Reserved10, 32),
         )
-
-def frame_to_az_el(frame_idx: int) -> tuple[int, int]:
-
-    phi = 2.0 * math.pi * ((frame_idx % ROT_FRAMES) / ROT_FRAMES)
-
-    d_az = int(round(MAX_DELTA_RAW * math.cos(phi)))
-    d_el = int(round(MAX_DELTA_RAW * math.sin(phi)))
-
-    pos_az = clamp(ANG_CENTER + d_az, 0, ANG_RAW_MAX)
-    pos_el = clamp(ANG_CENTER + d_el, 0, ANG_RAW_MAX)
-    return pos_az, pos_el
 
 @dataclass
 class RadarDetectionMessage:
@@ -294,25 +294,25 @@ class RadarDetectionMessage:
             object_id_ref = i & 0xFF
             timestamp_diff = frame_idx & 0xFFFF
 
-            rcs = 1000 + (i % 2000)
-            rcs_err = 0
+            rcs = random.randint(0, 40000)
+            rcs_err = random.randint(-20000, 20000)
 
-            snr = 40
-            snr_err = 1
+            snr = random.randint(0, 254)
+            snr_err = random.randint(0, 254)
 
-            multi_target_prob = 0
+            multi_target_prob = random.randint(0, 100)
             ambiguity_group_id = 0
-            detection_ambiguity_prob = 0
-            free_space_prob = 200
+            detection_ambiguity_prob = random.randint(0, 100)
+            free_space_prob = random.randint(0, 100)
 
-            num_valid_det_class = 1
+            num_valid_det_class = 0
             class_id = i % 4
             det_class_type = bytes([class_id, 0, 0, 0])
             det_class_conf = bytes([80, 0, 0, 0])
 
-            pos_r_err  = 5
-            pos_az_err = 5
-            pos_el_err = 5
+            pos_r_err  = 0  
+            pos_az_err = 0 
+            pos_el_err = 0
 
             rel_v_r = 30000
             rel_v_r_err = 1
